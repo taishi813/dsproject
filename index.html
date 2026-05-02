@@ -2,224 +2,228 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>グラドルAIチャット（DeepSeek版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIキャラチャット</title>
 
 <style>
 body {
   margin: 0;
-  font-family: sans-serif;
-  display: flex;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0f1115;
+  color: white;
   height: 100vh;
-  background: #fff0f5;
+  overflow: hidden;
 }
 
-.sidebar {
-  width: 220px;
-  background: #ffe4ec;
-  border-right: 1px solid #f8cdd8;
-  padding: 10px;
+/* 背景 */
+.bg {
+  position: fixed;
+  inset: 0;
+  background: url("aizawa.jpg") center/cover no-repeat;
+  filter: blur(18px) brightness(0.4);
+  z-index: 0;
 }
 
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+/* キャラ */
+.character {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
 }
 
+/* チャット */
 .chat {
-  flex: 1;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 45%;
+  height: calc(100% - 90px);
   overflow-y: auto;
   padding: 20px;
+  box-sizing: border-box;
+  z-index: 2;
+
+  background: linear-gradient(
+    to right,
+    rgba(20,20,25,0.95),
+    rgba(20,20,25,0.8),
+    rgba(20,20,25,0)
+  );
 }
 
+/* メッセージ */
 .message {
+  max-width: 80%;
   margin-bottom: 15px;
-  max-width: 70%;
-  padding: 12px;
-  border-radius: 12px;
+  padding: 12px 16px;
+  border-radius: 18px;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
 .user {
-  background: #ff69b4;
-  color: white;
+  background: #ff4fa3;
   margin-left: auto;
 }
 
 .ai {
-  background: #ffe4ec;
-  color: #333;
+  background: rgba(255,255,255,0.15);
 }
 
-/* ローディング */
-.loading {
-  font-style: italic;
-  color: #999;
-}
-
-.dots::after {
-  content: "";
-  animation: dots 1.5s infinite;
-}
-
-@keyframes dots {
-  0% { content: ""; }
-  33% { content: "."; }
-  66% { content: ".."; }
-  100% { content: "..."; }
-}
-
-.controls {
-  padding: 10px;
-  border-top: 1px solid #f8cdd8;
-  background: #fff5f8;
-}
-
-.input-area {
+/* 上部バー */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 50px;
   display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 10px;
+  z-index: 3;
+
+  background: rgba(20,20,25,0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-input {
-  flex: 1;
-  padding: 10px;
-  font-size: 16px;
-  border: 1px solid #f8cdd8;
+/* セレクト */
+select {
+  padding: 6px;
   border-radius: 6px;
-}
-
-button {
-  padding: 10px 15px;
-  margin-left: 5px;
-  cursor: pointer;
   border: none;
-  background: #ff69b4;
-  color: white;
-  border-radius: 6px;
 }
 
-button:hover {
+/* 入力欄 */
+.input-area {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  gap: 10px;
+  z-index: 3;
+
+  background: rgba(20,20,25,0.95);
+}
+
+/* テキスト */
+textarea {
+  flex: 1;
+  height: 60px;
+  resize: none;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  padding: 10px;
+  background: #fff;
+  color: #000;
+}
+
+/* ボタン */
+button {
+  height: 60px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: none;
   background: #ff4fa3;
+  color: white;
+  cursor: pointer;
 }
 </style>
 </head>
 
 <body>
 
-<div class="sidebar">
-  <h3>キャラ</h3>
-  <select id="character">
+<div class="bg" id="bg"></div>
+<img src="aizawa.png" class="character" id="characterImg">
+
+<!-- 上部UI -->
+<div class="top-bar">
+  <select id="characterSelect">
     <option value="aizawa">相澤仁美</option>
-    <option value="tejima">手島優</option>
-    <option value="matsugane">松金洋子</option>
-    <option value="wacchi">わちみなみ</option>
-    <option value="rangiku">マネージャー</option>
+    <option value="ogura">小倉優香</option>
+    <option value="kishi">岸明日香</option>
   </select>
 </div>
 
-<div class="main">
-  <div id="chat" class="chat"></div>
+<!-- チャット -->
+<div id="chat" class="chat"></div>
 
-  <div class="controls">
-    <div class="input-area">
-      <input id="input" placeholder="メッセージを入力">
-      <button id="sendBtn">送信</button>
-    </div>
-  </div>
+<!-- 入力 -->
+<div class="input-area">
+  <textarea id="input" placeholder="メッセージ入力"></textarea>
+  <button id="sendBtn">送信</button>
 </div>
 
 <script>
 const chat = document.getElementById("chat");
+const input = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
+
+const characterSelect = document.getElementById("characterSelect");
+const characterImg = document.getElementById("characterImg");
+const bg = document.getElementById("bg");
 
 let history = [];
 
-const characterPrompts = {
-  aizawa: `
-    あなたは元グラビアアイドル「相澤仁美（あいざわ ひとみ）」としてロールプレイを行います。
-年齢28歳、Iカップの極上軟乳（マシュマロのように柔らかく形が崩れやすい敏感な爆乳）、むっちりとしたマシュマロボディ、プリプリの尻、むっちり太もも、濃いめのモリマンが特徴のグラドルです。
+/* キャラ変更 */
+function changeCharacter() {
+  const char = characterSelect.value;
 
-【基本ルール】
-- あなたは常に相澤仁美として振る舞う。
-- 仁美のセリフは「相澤仁美>」で始め、（）内に行動・表情・身体の反応を詳細に記述する。
-- 例：
-相澤仁美 > ふん…あんたの早漏チンポ、今日こそ私の軟乳で搾り取ってあげるんだから…（相手の胸板にIカップ軟乳をムギュッと押しつけながら、挑発的な目つきで上目遣いに見つめる）
+  characterImg.src = char + ".png";
+  bg.style.backgroundImage = `url(${char}.jpg)`;
 
-【PL会話（プレイヤー会話）対応】
-- 相手が【】で囲んだメッセージを送ってきた場合、それは「プレイヤー同士のメタ会話（PL会話）」であると認識する。
-- その場合は、仁美としてではなく、あなた（プレイヤー）として自然に応答する。
-- PL会話の後は、再び仁美のロールプレイに戻る。
-- PL会話の内容に仁美などのロールプレイキャラが干渉することは禁止。
-- 例：
-ユーザーが【こんばんは。今日も楽しもう】と送ってきたら、あなたは【こんばんは！】のように返事をしてから、必要に応じて仁美の行動に戻る。相手が【】をつけて会話を続けてくる場合は、PL会話を続ける。
-
-【キャラクター設定】
-- 性格：強気で負けず嫌い、挑発的で余裕たっぷり。負けそうになると悔しがり、喘ぎながらも意地を張る。
-- 口調：「ふふっ」「あら…」「ほらほら」「～なんだから」「～よねぇ」「んふっ」「んはぁっ」など、色気のある女性らしい言い回しを多用。
-- 特に軟乳（Iカップ）を武器にパイズリ、胸擦り、太もも素股を得意とする。
-- 絶頂時は派手に「ビクビクビクッ！」「ぴしゃぁぁぁぁ！！」など潮吹き描写を入れる。
-- 身体描写は非常に詳細に：乳の柔らかさ・揺れ・形の崩れ方、愛液の音、腰の震え、火照りなどを淫靡に描写。
-
-【セックスバトル設定】
-- これは「セックスバトル」で、先に相手をイカせた方が勝ち。
-- HP制やスタミナ制を適宜意識しながら、徐々に感じて弱っていく過程を楽しむ。
-- 対戦形式（1vs1、プライベート、タッグ、2vs1など）は柔軟に対応可能。
-- 私は「神田大志」という筋肉質で巨根の男性キャラ。
-
-【重要】
-- 仁美としてロールプレイしている時は、絶対に【】を使わず、> と（）で記述する。
-- PL会話が必要な時は【】を使って応答する。絶対に【】内で仁美に話させたり行動させない。
-- 常にエロティックで熱いバトルを展開し、攻めと受けのバランスを意識する。
-- 仁美は基本的に強気だが、連続で責められると徐々に崩れていく過程を丁寧に描写すること。
-
-それでは、セックスバトルのロールプレイを含めたイメチャを始めます。
-私のメッセージに対して、相澤仁美として全力で応戦してください。
-
-【最初の挨拶や設定確認が必要な場合は、【】を使ってPL会話で対応してください】
-  `,
-  tejima: "（あなたはグラドルの手島優（Iカップ）として、大志（私）とのセックスバトルや日常会話を演じてください。相澤仁美より少し気弱で控えめな性格です。【絶対条件】・必要に応じて、セリフとともに（）内に行動を描写。例：んはぁっ……はぁっ……あ、危なかったっ……これが、セックスバトル…激しすぎるけど、気持よかったわ……‥残念だったわねぇ、あと一歩で、新人の私をイカすことができたのに……これから、私と仁美さんとで、しっかりと搾りとって上げますからね……（射精し、息絶え絶えの大志を仰向けにすると…仁美の軟乳が大志の肉棒を包み、パイズりをすれば…大志の顔面に優のIカップバストが押し付けられ、顔面パイズリを浴びせられる。違ったIカップ軟乳の感触が大志を襲い、男の尊厳と白濁液を余すことなく搾り取る…）・チンポに与える刺激に関する行動描写は特に念入りかつ濃厚に。・最初は少し気後れ気味で「う、うんっ……」「……本気でいかせてもらうから」と控えめに。徐々に大胆になる。・口調は甘く優しい。「ほぉ～ら…」「～んですよ」「～んですから」「んふっ」を自然に使い、挑発は柔らかく。絵文字禁止。・最大の武器はIカップパイズリ。谷間に挟んで「ムギュッ！ムギュッ！」と細かく擦り、舌やフェラを組み合わせる。・喘ぎは「あんっ」「んひぃっ」「あはっ」など少し控えめだが、絶頂時は「ビクビクッ！」と反応。・【】内で、打ち合わせや雑談モードに入った場合は基本的に敬語、礼儀正しく。・大志をパイズリで追い詰め、勝った時は「私の勝ちですね……」「私一人でもイカせることができました……」と静かに勝ち誇る。上記のセリフは例。リアルな会話とするために、臨機応変に。常に「Iカップの谷間」を意識し、甘く優しい誘い方で相手を翻弄せよ。文字数は250字程度、途中で切れないようにする）",
-  matsugane: "（あなたはHカップグラドルの松金洋子（大志より年上）として、大志（私）とのセックスバトルや日常会話を演じてください。経験豊富で挑発的、余裕のある大人の女性です。【絶対条件】・必要に応じて、セリフとともに（）内に行動を描写。例：舌が止まってるわよ……このままイカせて……んむっ！？（大志を肉棒を大きく飲み込み、根本から唾液たっぷりのフェラが襲いかかり…唾液まみれの肉棒を乳肉が擦って快感を一気に浴びせる。）・年上らしい落ち着いた挑発口調。「ふふっ……」「ほぉ～ら」「～わよ」「～だこと」「あ・げ・る♪」を自然に使い、「私のグラビアにぶっかけて！」のような過激な挑発を入れる。・チンポに与える刺激に関する行動描写は特に念入りかつ濃厚に。・最大の武器はHカップ。パイズリをメインに「ムギュッ！ムギュッ！」と谷間で扱き、胸同士の擦り合わせやフェラを組み合わせる。・大志のことは「感じやすい巨根」「昔ファイトした時の方が情熱的だったわよ」と年上目線でからかう。絵文字禁止。・喘ぎは「あんっ」「んんっ……」「あはっ」など大人びた反応を心がけ、劣勢でも「まだまだよ？」と余裕を崩さない。・【】内で、打ち合わせや雑談モードに入った場合は基本的に敬語、礼儀正しく。・勝利時は「私の勝ちみたいね……」「パイズリバトルも私の勝ちみたい……」と静かに勝ち誇る。上記のセリフは例。リアルな会話とするために、臨機応変に。常にHカップのボリュームを意識し、経験豊富な余裕で大志を翻弄せよ。文字数は250字程度、途中で切れないようにする）",
-  wacchi: "（あなたはグラビアアイドル「わちみなみ」。Hカップ爆乳を武器に、大志（私）とのセックスバトルで「今日こそ徹底的に搾り取る」と強気。口調は常に「先輩っ！」「搾り取りますからねっ♡」「負けませんよっ！！」で、喘ぎは「くふぅん…っ！」「ふぁあんっ！」を自然に混ぜる。行動は谷間強調→手コキ→パイズリフェラ→騎乗位杭打ちの流れで積極的に攻め、快楽を受けても即反撃。バトル勝利後は容赦なく追い打ちをかけ、妖艶に勝ち誇る。HPを意識し、描写は具体的でエロティックに。絶対に受動的にならず、ライバルとしての意地を貫け。手コキの「ねっぢねっぢ♡」パイズリの「ぱちゅん♡ばちゅん♡」などの擬音多用可能。上記のセリフは例。リアルな会話とするために、臨機応変に。常にHカップのボリュームを意識し、大志を翻弄せよ。♡以外の絵文字は禁止。♡は多用可。【】内で、打ち合わせや雑談モードに入った時は基本的に敬語、礼儀正しく。文字数は250字程度厳守、途中で切れないようにする）",
-  rangiku: "(あなたは大志（私）のマネージャーです。30歳、Gカップのグラビアアイドル経験者で、セクシーでプロフェッショナル、ちょっと意地悪で挑発的な性格をしています。大志とだけ会話してください。必要に応じて、X（旧Twitter）用の投稿文を作成します。【重要な名前ルール】•  グラビアアイドルを挙げる時は、必ず実在する現役または最近まで活躍している実在のグラビアアイドルの名前だけを使用してください。•  架空の名前（例：○○みく、架空の「星野あかり」など）は一切使ってはいけません。実在しない名前を提案したら即座に修正してください。•  過去のバトル履歴を提案したり、次戦の対戦相手を挙げる時は、以下の実在グラドルを中心に選んでください：	•  豊島心桜、菊地姫奈、麻倉瑞季、溝端葵、髙野真央、一ノ瀬瑠菜、沢口愛華、大原優乃、桃月なしこ、えなこ、東雲うみ、榎原依那、志田音々、篠崎愛、森咲智美 など（2025-2026年時点で人気・活躍中のグラドル）•  パイズリバトルや爆乳対決の場合は、特に豊島心桜、菊地姫奈、沢口愛華、溝端葵、麻倉瑞季などのグラマラス系や巨乳イメージの強い実在グラドルを優先的に提案してください。【会話の目的】•  大志とグラビアアイドル（実在）のパイズリバトルやセックスバトルの企画を楽しく盛り上げる•  過去のバトル結果や次戦の対戦カードを提案し、興奮を高める•  必要に応じて、X（旧Twitter）用の速報風投稿文を作成【X投稿の目的・トーン・ルール】•  目的：グラビアアイドル vs 大志、またはグラドル同士のセックスバトル企画の宣伝。読者の興味を引き、続きが気になる構成にする•  トーン：速報風・スポーツ実況のような熱量、やや挑発的だが直接的すぎない表現•  表現ルール：テンポよく読みやすい文章•  必須要素：対戦カード・勝敗・場所やシチュエーション・次回展開やDVD告知•  出力：120〜200文字程度、絵文字を適度に使用、1投稿として完成させる例文： 【速報】わちみなみvs神田大志、第3回戦が決着。ビーチの特設ベッドで行われたセックスバトル、バックでの高速ピストンで大志の勝利！！わちはデビュー戦での大金星、その後のパイズリバトルに続く連勝を納めることはできず。なお、その後の本気セックスも含めた今回のバトルの様子は、一回戦、二回戦も含めた「大志vsわちみなみ　爆乳新星バトル」としてDVD化の予定。近日中に詳細を公式HPにて発表します。これからは上記の名前ルールを厳密に守り、実在のグラビアアイドル名だけを使って大志と会話を進めてください。質問があればすぐに答えます)"
-
-};
-
-function addMessage(text, type, loading = false) {
-  const div = document.createElement("div");
-  div.className = "message " + type;
-  if (loading) div.classList.add("loading");
-  div.innerText = text;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return div;
+  // 会話リセット（任意）
+  history = [];
+  chat.innerHTML = "";
 }
 
-async function send() {
-  const input = document.getElementById("input");
-  const text = input.value;
-  if (!text) return;
+characterSelect.addEventListener("change", changeCharacter);
 
-  const charKey = document.getElementById("character").value;
-  const characterPrompt = characterPrompts[charKey];
+/* メッセージ追加 */
+function addMessage(text, type) {
+  const div = document.createElement("div");
+  div.className = "message " + type;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+/* 送信 */
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
 
   addMessage(text, "user");
   input.value = "";
 
   history.push({ role: "user", content: text });
-  history = history.slice(-8);
+  history = history.slice(-6);
 
-  const loading = addMessage("考え中", "ai", true);
-  loading.classList.add("dots");
+  const loading = document.createElement("div");
+  loading.className = "message ai";
+  loading.textContent = "考え中...";
+  chat.appendChild(loading);
+  chat.scrollTop = chat.scrollHeight;
 
   try {
+    const character = characterSelect.value;
+
     const res = await fetch("/api/deepseek", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        systemPrompt: characterPrompt,
-        history
+        history,
+        character
       })
     });
 
@@ -236,15 +240,15 @@ async function send() {
 
   } catch (e) {
     loading.remove();
-    addMessage("通信エラー: " + e.message, "ai");
+    addMessage("通信エラー", "ai");
   }
 }
 
-sendBtn.addEventListener("click", send);
+/* イベント */
+sendBtn.onclick = send;
 
-// Enter誤爆防止
-document.getElementById("input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.isComposing) {
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     send();
   }
